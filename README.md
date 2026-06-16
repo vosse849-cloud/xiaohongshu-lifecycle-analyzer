@@ -5,6 +5,14 @@
 > 项目定位：AIGC 内容运营数据分析工具 / 本地网页数据分析工具。  
 > 适合场景：小红书图文账号、AIGC 食谱内容账号、运营复盘、CSV 数据快照对比、作品集项目展示。
 
+## 30 秒看懂
+
+- 这是一个面向小红书内容运营的本地数据分析工具，不是普通展示页。
+- 它把小红书导出的 CSV 转成可复盘的指标、状态判断、增长对比和运营建议。
+- 它支持单份 CSV 分析，也支持多份 CSV 快照对比，用来观察作品在不同时间段的新增观看、收藏和赞藏。
+- AI 功能只做复盘总结，不替代本地规则计算，也不直接读取原始 API Key 或重新计算 CSV。
+- 这个项目重点展示真实运营问题拆解、数据指标设计、产品迭代和 AI 工具边界设计能力。
+
 ## 项目背景
 
 小红书后台可以导出笔记数据，但原始 CSV 更像一张明细表。运营复盘时，仍然需要人工判断：
@@ -162,15 +170,15 @@ demo/mock-xhs-notes.csv
 docs/screenshots/
 ```
 
-建议预留截图：
+当前仓库暂未提交截图，避免出现破图。建议后续补充这些截图：
 
 - `01-home-upload.png`：首页和 CSV 上传区。
-- `02-overview-status.png`：核心数据总览和状态分布。
-- `03-table-detail.png`：明细表格和筛选排序。
+- `02-core-metrics.png`：核心数据总览和状态分布。
+- `03-table-analysis.png`：明细表格和筛选排序。
 - `04-snapshot-compare.png`：多快照对比结果。
-- `05-dashboard-charts.png`：数据报表看板。
-- `06-topic-correction.png`：选题修正库。
-- `07-ai-recap.png`：AI 复盘结果区域。
+- `05-charts-dashboard.png`：数据报表看板。
+- `06-ai-review.png`：AI 复盘结果区域。
+- `07-topic-correction.png`：选题修正库。
 
 详细截图清单见 [docs/screenshots-guide.md](docs/screenshots-guide.md)。
 
