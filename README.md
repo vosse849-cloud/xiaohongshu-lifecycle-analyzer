@@ -165,25 +165,48 @@ demo/mock-xhs-notes.csv
 ## 截图展示
 
 ### 1. 首页与 CSV 上传区
+
 ![首页与 CSV 上传区](docs/screenshots/01-home-upload.png)
 
+展示工具首页、单份 CSV 上传入口、观察时间识别和开始分析按钮。
+
 ### 2. 核心数据总览
+
 ![核心数据总览](docs/screenshots/02-core-metrics.png)
 
+展示总曝光、总观看量、总赞藏和、状态分布以及账号合计数据。
+
 ### 3. 明细表格分析
+
 ![明细表格分析](docs/screenshots/03-table-analysis.png)
 
+展示选题识别、笔记状态、运营建议、筛选排序和冻结表格效果。
+
 ### 4. 多快照增长对比
+
 ![多快照增长对比](docs/screenshots/04-snapshot-compare.png)
 
+展示多份 CSV 快照上传、相邻区间新增数据和增长判断筛选。
+
 ### 5. 数据图表看板
+
 ![数据图表看板](docs/screenshots/05-charts-dashboard.png)
 
+展示新增观看趋势、互动质量趋势、Top 作品和增长判断分布。
+
 ### 6. AI 复盘结果
+
 ![AI 复盘结果](docs/screenshots/06-ai-review.png)
 
+展示 DeepSeek AI 复盘区域、模型信息、分析依据和 token 用量。
+
 ### 7. 选题修正库
+
 ![选题修正库](docs/screenshots/07-topic-correction.png)
+
+展示选题修正库管理入口，包括重新识别、应用修正库、导入导出和缓存清理。
+
+详细截图清单见 [docs/screenshots-guide.md](docs/screenshots-guide.md)。
 
 ## 安全说明
 
