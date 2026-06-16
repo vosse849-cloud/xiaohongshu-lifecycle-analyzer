@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>小红书笔记生命周期分析器</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="page-header">
+      <div>
+        <p class="eyebrow">本地 CSV 快照分析工具</p>
+        <h1>小红书笔记生命周期分析器</h1>
+        <p class="header-note">第一版只分析单次数据快照，尾流只能判断为“疑似尾流”。</p>
+      </div>
+    </header>
+
+    <section class="control-panel" aria-label="上传和分析设置">
+      <div class="field-group">
+        <label for="csvFile">上传 CSV 文件</label>
+        <input id="csvFile" type="file" accept=".csv,text/csv">
+        <p class="hint">Excel 请先另存为 CSV，再上传到这里。</p>
+      </div>
+
+      <div class="field-group">
+        <label for="observationTime">当前观察时间</label>
+        <input id="observationTime" type="text" placeholder="例如：2026-05-27 17:30">
+        <p class="hint">格式建议使用：年-月-日 时:分。</p>
+      </div>
+
+      <button id="analyzeBtn" type="button">开始分析</button>
+    </section>
+
+    <section id="messageBox" class="message-box" aria-live="polite"></section>
+
+    <section class="overview-section" aria-label="核心数据总览">
+      <div class="section-title">
+        <h2>核心数据总览</h2>
+        <p>固定展示当前 CSV 的核心规模和质量指标。</p>
+      </div>
+      <div class="overview-grid">
+        <article class="metric-card">
+          <span>总笔记数</span>
+          <strong id="totalCount">0</strong>
+        </article>
+        <article class="metric-card">
+          <span>总曝光</span>
+          <strong id="overviewImpressions">0</strong>
+        </article>
+        <article class="metric-card">
+          <span>总观看量</span>
+          <strong id="overviewViews">0</strong>
+        </article>
+        <article class="metric-card">
+          <span>总点赞</span>
+          <strong id="overviewLikes">0</strong>
+        </article>
+        <article class="metric-card">
+          <span>总收藏</span>
+          <strong id="overviewCollects">0</strong>
+        </article>
+        <article class="metric-card">
+          <span>总赞藏和</span>
+          <strong id="overviewLikeCollect">0</strong>
+        </article>
+        <article class="metric-card">
+          <span>平均封面点击率</span>
+          <strong id="avgCtr">0%</strong>
+        </article>
+        <article class="metric-card">
+          <span>平均赞藏率</span>
+          <strong id="avgLikeCollectRate">0%</strong>
+        </article>
+        <article class="metric-card">
+          <span>平均收藏率</span>
+          <strong id="avgCollectRate">0%</strong>
+        </article>
+      </div>
+    </section>
+
+    <section class="overview-section" aria-label="状态分布">
+      <div class="section-title">
+        <h2>状态分布</h2>
+        <p>根据当前 CSV 中真实出现的状态自动生成，和状态筛选保持一致。</p>
+      </div>
+      <div id="statusDistributionGrid" class="status-distribution-grid"></div>
+    </section>
+
+    <section class="account-summary" aria-label="账号合计数据">
+      <div class="section-title">
+        <h2>账号合计数据</h2>
+        <p>用于查看当前 CSV 的账号整体数据，也可以配合筛选器查看局部合计。</p>
+      </div>
+      <div class="summary-columns">
+        <article class="summary-panel">
+          <h3>全部数据</h3>
+          <div id="allSummaryGrid" class="summary-grid"></div>
+        </article>
+        <article class="summary-panel">
+          <h3>当前筛选结果</h3>
+          <div id="filteredSummaryGrid" class="summary-grid"></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="table-tools" aria-label="筛选和排序">
+      <button id="exportTopicBtn" class="secondary-btn" type="button">导出带选题 CSV</button>
+      <button id="reidentifyTopicBtn" class="secondary-btn" type="button">重新识别选题</button>
+      <button id="applyCorrectionBtn" class="secondary-btn" type="button">重新应用修正库</button>
+      <button id="exportCorrectionBtn" class="secondary-btn" type="button">导出选题修正库</button>
+      <label class="secondary-btn file-action" for="importCorrectionFile">导入选题修正库</label>
+      <input id="importCorrectionFile" class="hidden-file" type="file" accept=".csv,text/csv">
+      <button id="cleanPendingCacheBtn" class="secondary-btn" type="button">清理待填写缓存</button>
+
+      <div class="field-group compact">
+        <label for="lifecycleFilterSelect">生命周期筛选</label>
+        <select id="lifecycleFilterSelect">
+          <option value="all">全部时间</option>
+          <option value="age-0-2">0-2 小时</option>
+          <option value="age-2-6">2-6 小时</option>
+          <option value="age-6-24">6-24 小时</option>
+          <option value="age-24-plus">24 小时以上</option>
+        </select>
+      </div>
+
+      <div class="field-group compact">
+        <label for="statusFilterSelect">状态筛选</label>
+        <select id="statusFilterSelect">
+          <option value="all">全部状态（0）</option>
+        </select>
+      </div>
+
+      <div class="field-group compact">
+        <label for="sortSelect">排序</label>
+        <select id="sortSelect">
+          <option value="publishedAt-desc">发布时间：新到旧</option>
+          <option value="publishedAt-asc">发布时间：旧到新</option>
+          <option value="ageHours-desc">已发布时长：长到短</option>
+          <option value="ageHours-asc">已发布时长：短到长</option>
+          <option value="views-desc">观看量：高到低</option>
+          <option value="views-asc">观看量：低到高</option>
+          <option value="impressions-desc">曝光：高到低</option>
+          <option value="impressions-asc">曝光：低到高</option>
+          <option value="coverCtr-desc">封面点击率：高到低</option>
+          <option value="likeCollectRate-desc">赞藏率：高到低</option>
+          <option value="collectRate-desc">收藏率：高到低</option>
+          <option value="viewsPerHour-desc">每小时观看：高到低</option>
+          <option value="likeCollectPerHour-desc">每小时赞藏：高到低</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="result-panel" aria-label="分析结果">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>选题/菜品名</th>
+              <th>原始笔记标题</th>
+              <th>首次发布时间</th>
+              <th>已发布时长</th>
+              <th>曝光</th>
+              <th>观看量</th>
+              <th>封面点击率</th>
+              <th>点赞</th>
+              <th>评论</th>
+              <th>收藏</th>
+              <th>涨粉</th>
+              <th>分享</th>
+              <th>人均观看时长</th>
+              <th>弹幕</th>
+              <th>赞藏和</th>
+              <th>互动量</th>
+              <th>赞藏率</th>
+              <th>收藏率</th>
+              <th>评论率</th>
+              <th>分享率</th>
+              <th>涨粉率</th>
+              <th>每小时观看</th>
+              <th>每小时赞藏</th>
+              <th>状态</th>
+              <th>运营建议</th>
+            </tr>
+          </thead>
+          <tbody id="resultBody">
+            <tr>
+              <td colspan="25" class="empty-cell">请上传 CSV，并输入当前观察时间后开始分析。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="compare-section" aria-label="多次 CSV 快照对比">
+      <div class="section-title">
+        <h2>多次 CSV 快照对比</h2>
+        <p>上传多个不同时间点导出的小红书 CSV，系统会自动计算相邻快照之间的新增观看、点赞、收藏、评论、分享、涨粉等数据，用于判断作品是否持续增长、放量、停滞或疑似尾流。</p>
+      </div>
+
+      <div id="snapshotList" class="snapshot-list"></div>
+
+      <div class="compare-actions">
+        <button id="addSnapshotBtn" class="secondary-btn" type="button">添加快照</button>
+        <button id="compareBtn" type="button">开始多快照对比</button>
+      </div>
+
+      <div class="compare-summary-panel">
+        <h3>多快照新增数据总览</h3>
+        <div id="compareSummaryGrid" class="summary-grid"></div>
+      </div>
+
+      <div class="compare-summary-panel">
+        <h3>各区间新增概览</h3>
+        <div id="compareIntervalSummaryGrid" class="interval-summary-grid"></div>
+      </div>
+
+      <div class="table-tools compare-tools">
+        <button id="exportCompareBtn" class="secondary-btn" type="button">导出多快照对比结果 CSV</button>
+        <div class="field-group compact">
+          <label for="compareIntervalFilter">对比区间筛选</label>
+          <select id="compareIntervalFilter">
+            <option value="all">全部区间（0）</option>
+          </select>
+        </div>
+        <div class="field-group compact">
+          <label for="compareStatusFilter">增长判断筛选</label>
+          <select id="compareStatusFilter">
+            <option value="all">全部（0）</option>
+          </select>
+        </div>
+        <div class="field-group compact">
+          <label for="compareSortSelect">对比排序</label>
+          <select id="compareSortSelect">
+            <option value="deltaViews-desc">新增观看量：高到低</option>
+            <option value="deltaViews-asc">新增观看量：低到高</option>
+            <option value="deltaImpressions-desc">新增曝光：高到低</option>
+            <option value="deltaLikes-desc">新增点赞：高到低</option>
+            <option value="deltaCollects-desc">新增收藏：高到低</option>
+            <option value="deltaLikeCollect-desc">新增赞藏和：高到低</option>
+            <option value="deltaViewsPerHour-desc">每小时新增观看：高到低</option>
+            <option value="deltaLikeCollectPerHour-desc">每小时新增赞藏：高到低</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="table-wrap compare-table-wrap">
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th>对比区间</th>
+              <th>选题/菜品名</th>
+              <th>原始笔记标题</th>
+              <th>首次发布时间</th>
+              <th>前快照观看量</th>
+              <th>后快照观看量</th>
+              <th>新增观看量</th>
+              <th>前快照曝光</th>
+              <th>后快照曝光</th>
+              <th>新增曝光</th>
+              <th>新增点赞</th>
+              <th>新增收藏</th>
+              <th>新增评论</th>
+              <th>新增分享</th>
+              <th>新增涨粉</th>
+              <th>新增赞藏和</th>
+              <th>新增互动量</th>
+              <th>每小时新增观看</th>
+              <th>每小时新增赞藏</th>
+              <th>增长判断</th>
+              <th>运营建议</th>
+            </tr>
+          </thead>
+          <tbody id="compareResultBody">
+            <tr>
+              <td colspan="21" class="empty-cell">请至少上传 2 个快照 CSV，并填写每个快照的观察时间后开始对比。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="recap-section" aria-label="复盘结论生成">
+      <div class="section-title">
+        <h2>复盘结论生成</h2>
+        <p>根据当前页面已经计算出的单份 CSV 分析或多快照对比结果，生成可复制的运营复盘文字。</p>
+      </div>
+
+      <div class="recap-actions">
+        <button id="generateSingleRecapBtn" type="button">生成单份 CSV 复盘结论</button>
+        <button id="generateCompareRecapBtn" type="button">生成多快照增长复盘结论</button>
+        <button id="copyRecapBtn" class="secondary-btn" type="button">复制复盘结论</button>
+        <button id="clearRecapBtn" class="secondary-btn" type="button">清空复盘结论</button>
+      </div>
+
+      <textarea id="recapTextarea" class="recap-textarea" placeholder="点击上方按钮后，这里会生成可复制的复盘结论。"></textarea>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>

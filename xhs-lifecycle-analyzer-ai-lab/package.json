@@ -1,0 +1,9 @@
+{
+  "name": "xhs-lifecycle-analyzer-ai-lab",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI lab version of the local Xiaohongshu lifecycle analyzer.",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
