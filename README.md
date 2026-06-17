@@ -164,23 +164,26 @@ demo/mock-xhs-notes.csv
 
 ## 截图展示
 
-截图建议放在：
+### 1. 首页与 CSV 上传区
+![首页与 CSV 上传区](docs/screenshots/01-home-upload.png)
 
-```text
-docs/screenshots/
-```
+### 2. 核心数据总览
+![核心数据总览](docs/screenshots/02-core-metrics.png)
 
-当前仓库暂未提交截图，避免出现破图。建议后续补充这些截图：
+### 3. 明细表格分析
+![明细表格分析](docs/screenshots/03-table-analysis.png)
 
-- `01-home-upload.png`：首页和 CSV 上传区。
-- `02-core-metrics.png`：核心数据总览和状态分布。
-- `03-table-analysis.png`：明细表格和筛选排序。
-- `04-snapshot-compare.png`：多快照对比结果。
-- `05-charts-dashboard.png`：数据报表看板。
-- `06-ai-review.png`：AI 复盘结果区域。
-- `07-topic-correction.png`：选题修正库。
+### 4. 多快照增长对比
+![多快照增长对比](docs/screenshots/04-snapshot-compare.png)
 
-详细截图清单见 [docs/screenshots-guide.md](docs/screenshots-guide.md)。
+### 5. 数据图表看板
+![数据图表看板](docs/screenshots/05-charts-dashboard.png)
+
+### 6. AI 复盘结果
+![AI 复盘结果](docs/screenshots/06-ai-review.png)
+
+### 7. 选题修正库
+![选题修正库](docs/screenshots/07-topic-correction.png)
 
 ## 安全说明
 
