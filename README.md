@@ -66,6 +66,7 @@
 ├─ index.html                         # 稳定版静态页面入口
 ├─ style.css                          # 稳定版样式
 ├─ script.js                          # 稳定版本地分析逻辑
+├─ start-mac.command                   # macOS 一键启动 AI 实验版
 ├─ xhs-lifecycle-analyzer-ai-lab/      # AI 实验版
 │  ├─ index.html
 │  ├─ style.css
@@ -84,6 +85,7 @@
 ├─ docs/
 │  ├─ project-summary.md
 │  ├─ screenshots-guide.md
+│  ├─ company-local-run.md
 │  ├─ demo-plan.md
 │  └─ screenshots/
 └─ 迭代记录.md
@@ -106,30 +108,47 @@
 
 适合展示多快照、图表、选题修正库和 DeepSeek AI 复盘。
 
+Windows 可以使用一键脚本：
+
 1. 进入 `xhs-lifecycle-analyzer-ai-lab/`。
-2. 第一次使用时，复制 `.env.example` 为 `.env`，或直接双击 `启动AI分析器.bat` 按提示输入 DeepSeek API Key。
+2. 第一次使用时，复制 `.env.example` 为 `.env`，或直接双击 `启动AI分析器.bat` 按提示输入 API Key。
 3. 双击 `启动AI分析器.bat` 或 `start-ai-lab.bat`。
 4. 浏览器会打开 `http://127.0.0.1:8787`。
 5. 使用结束后，可双击 `关闭AI分析器.bat` 或 `stop-ai-lab.bat` 关闭本地后端。
 
-也可以在 AI 实验版目录中运行：
+macOS / Linux 使用终端：
 
 ```bash
-npm start
+cd xhs-lifecycle-analyzer-ai-lab
+npm install
+cp .env.example .env
+nano .env
+npm run start
 ```
 
-当前 `package.json` 没有外部依赖，通常不需要 `npm install`。
+然后打开 `http://127.0.0.1:8787`。更完整的公司 MacBook Pro 运行步骤见 [docs/company-local-run.md](docs/company-local-run.md)。
 
-## DeepSeek API 配置
+macOS 也可以使用根目录的一键启动文件：
+
+```bash
+chmod +x start-mac.command
+```
+
+之后可以在 Finder 中双击 `start-mac.command`。它会进入 `xhs-lifecycle-analyzer-ai-lab/`，检查 Node.js / npm，必要时执行 `npm install`，确认 `.env` 存在后启动 `npm run start` 并打开 `http://127.0.0.1:8787`。如果 `.env` 不存在，它只会提示你先复制 `.env.example` 并填写 Key，不会自动写入任何真实 Key。
+
+当前 `package.json` 没有复杂外部依赖，`npm install` 主要用于本地 Node 项目初始化。
+
+## AI API 配置
 
 AI 功能需要本地 `.env`：
 
 ```text
-DEEPSEEK_API_KEY=your-deepseek-api-key
-DEEPSEEK_MODEL=deepseek-v4-pro
-DEEPSEEK_API_URL=https://api.deepseek.com/chat/completions
-DEEPSEEK_MAX_TOKENS=16000
-DEEPSEEK_AUTO_CONTINUE_LIMIT=3
+AI_BASE_URL=https://api.deepseek.com/chat/completions
+AI_API_KEY=your-ai-api-key
+AI_MODEL=deepseek-v4-pro
+AI_MAX_TOKENS=16000
+AI_TEMPERATURE=0.3
+AI_AUTO_CONTINUE_LIMIT=3
 PORT=8787
 ```
 
@@ -138,7 +157,9 @@ PORT=8787
 - `.env` 不应提交到 GitHub。
 - API Key 不应写进前端 `script.js`。
 - 没有 API Key 时，CSV 分析、多快照对比、图表和选题修正库仍可使用，只有 DeepSeek AI 复盘不可用。
+- AI Key 只由本地后端 `server.js` 读取，前端不会直接调用 AI 服务。
 - DeepSeek 只读取页面已计算好的摘要数据，不重新计算 CSV。
+- 旧版 `DEEPSEEK_*` 变量仍兼容，但新环境推荐使用 `AI_*` 变量。
 
 ## 使用流程
 

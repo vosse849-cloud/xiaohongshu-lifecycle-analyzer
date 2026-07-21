@@ -11,15 +11,17 @@ const DEFAULT_DEEPSEEK_MODEL = "deepseek-v4-pro";
 const DEFAULT_DEEPSEEK_MAX_TOKENS = 16000;
 const FALLBACK_DEEPSEEK_MAX_TOKENS = 8000;
 const DEFAULT_AUTO_CONTINUE_LIMIT = 3;
+const DEFAULT_AI_TEMPERATURE = 0.3;
 
 loadEnvFile(path.join(ROOT_DIR, ".env"));
 
 const PORT = Number(process.env.PORT || 8787);
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || "";
-const DEEPSEEK_API_URL = process.env.DEEPSEEK_API_URL || "https://api.deepseek.com/chat/completions";
-const DEEPSEEK_MODEL = process.env.DEEPSEEK_MODEL || DEFAULT_DEEPSEEK_MODEL;
-const DEEPSEEK_MAX_TOKENS = parsePositiveInteger(process.env.DEEPSEEK_MAX_TOKENS, DEFAULT_DEEPSEEK_MAX_TOKENS);
-const DEEPSEEK_AUTO_CONTINUE_LIMIT = parsePositiveInteger(process.env.DEEPSEEK_AUTO_CONTINUE_LIMIT, DEFAULT_AUTO_CONTINUE_LIMIT);
+const DEEPSEEK_API_KEY = getFirstEnvValue(["AI_API_KEY", "DEEPSEEK_API_KEY"], "");
+const DEEPSEEK_API_URL = getFirstEnvValue(["AI_BASE_URL", "AI_API_URL", "DEEPSEEK_API_URL"], "https://api.deepseek.com/chat/completions");
+const DEEPSEEK_MODEL = getFirstEnvValue(["AI_MODEL", "DEEPSEEK_MODEL"], DEFAULT_DEEPSEEK_MODEL);
+const DEEPSEEK_MAX_TOKENS = parsePositiveInteger(getFirstEnvValue(["AI_MAX_TOKENS", "DEEPSEEK_MAX_TOKENS"], ""), DEFAULT_DEEPSEEK_MAX_TOKENS);
+const DEEPSEEK_AUTO_CONTINUE_LIMIT = parsePositiveInteger(getFirstEnvValue(["AI_AUTO_CONTINUE_LIMIT", "DEEPSEEK_AUTO_CONTINUE_LIMIT"], ""), DEFAULT_AUTO_CONTINUE_LIMIT);
+const AI_TEMPERATURE = parseNumberInRange(getFirstEnvValue(["AI_TEMPERATURE", "DEEPSEEK_TEMPERATURE"], ""), DEFAULT_AI_TEMPERATURE, 0, 2);
 
 const MIME_TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -48,6 +50,7 @@ const server = http.createServer(function (req, res) {
       keyConfigured: isConfiguredApiKey(DEEPSEEK_API_KEY),
       model: DEEPSEEK_MODEL,
       maxTokens: DEEPSEEK_MAX_TOKENS,
+      temperature: AI_TEMPERATURE,
       autoContinueLimit: DEEPSEEK_AUTO_CONTINUE_LIMIT
     });
     return;
@@ -69,7 +72,7 @@ const server = http.createServer(function (req, res) {
 server.listen(PORT, HOST, function () {
   console.log("AI lab server running at http://" + HOST + ":" + PORT);
   if (!DEEPSEEK_API_KEY) {
-    console.log("DEEPSEEK_API_KEY is not configured. AI recap calls will fail until .env is set.");
+    console.log("AI_API_KEY is not configured. AI recap calls will fail until .env is set.");
   }
 });
 
@@ -90,7 +93,7 @@ function handleAiRecap(req, res) {
           ok: false,
           error: "DeepSeek API Key 未配置",
           status: 500,
-          message: "请先在 .env 中配置有效的 DEEPSEEK_API_KEY。",
+          message: "请先在 .env 中配置有效的 AI_API_KEY（或 DEEPSEEK_API_KEY）。",
           model: DEEPSEEK_MODEL
         });
         return null;
@@ -126,7 +129,7 @@ function handleDeepSeekTest(res) {
       ok: false,
       error: "DeepSeek API Key 未配置",
       status: 500,
-      message: "请先在 .env 中配置有效的 DEEPSEEK_API_KEY。",
+      message: "请先在 .env 中配置有效的 AI_API_KEY（或 DEEPSEEK_API_KEY）。",
       model: DEEPSEEK_MODEL
     });
     return;
@@ -269,7 +272,7 @@ function callDeepSeekChat(messages, maxTokens) {
   var body = JSON.stringify({
     model: DEEPSEEK_MODEL,
     messages: messages,
-    temperature: 0.3,
+    temperature: AI_TEMPERATURE,
     max_tokens: maxTokens || DEEPSEEK_MAX_TOKENS,
     stream: false
   });
@@ -452,6 +455,20 @@ function parsePositiveInteger(value, fallback) {
   return parsed;
 }
 
+function parseNumberInRange(value, fallback, min, max) {
+  var parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return fallback;
+  }
+  if (parsed < min) {
+    return min;
+  }
+  if (parsed > max) {
+    return max;
+  }
+  return parsed;
+}
+
 function requestJson(url, options) {
   return new Promise(function (resolve, reject) {
     var parsedUrl = new URL(url);
@@ -572,11 +589,23 @@ function setCorsHeaders(res) {
 function isConfiguredApiKey(value) {
   var key = String(value || "").trim();
   return Boolean(key) &&
+    key !== "your-ai-api-key" &&
+    key !== "your-company-api-key" &&
     key !== "sk-your-deepseek-api-key" &&
     key !== "请填入你的DeepSeek API Key" &&
     key !== "请填入你的 DeepSeek API Key" &&
     key !== "你的 DeepSeek API Key" &&
     key !== "你的DeepSeek API Key";
+}
+
+function getFirstEnvValue(keys, fallback) {
+  for (var i = 0; i < keys.length; i += 1) {
+    var value = process.env[keys[i]];
+    if (value !== undefined && String(value).trim() !== "") {
+      return String(value).trim();
+    }
+  }
+  return fallback;
 }
 
 function loadEnvFile(envPath) {

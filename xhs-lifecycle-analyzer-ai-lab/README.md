@@ -314,6 +314,8 @@ AI 实验版保留原来的本地规则分析能力，同时新增 DeepSeek AI �
 
 ### 小白启动方式
 
+Windows 可以使用一键启动脚本。
+
 第一次使用：
 
 1. 双击 `启动AI分析器.bat`。
@@ -345,6 +347,23 @@ diagnose-ai-lab.bat
 
 它只做检查，不会启动服务。诊断窗口会显示当前目录、Node 版本、npm 版本、`.env` 是否存在、Key 是否已配置、8787 端口是否被占用、`/api/health` 是否可访问。
 
+macOS / Linux 请使用终端启动：
+
+```bash
+npm install
+cp .env.example .env
+nano .env
+npm run start
+```
+
+然后打开：
+
+```text
+http://127.0.0.1:8787
+```
+
+更完整的公司 MacBook Pro 运行步骤见外层文档：`../docs/company-local-run.md`。
+
 ### 小白关闭方式
 
 正常使用结束后，可以先关闭浏览器页面。
@@ -371,11 +390,12 @@ stop-ai-lab.bat
 `.env` 会由启动脚本自动创建，最终结构大致是：
 
 ```text
-DEEPSEEK_API_KEY=your-deepseek-api-key
-DEEPSEEK_MODEL=deepseek-v4-pro
-DEEPSEEK_API_URL=https://api.deepseek.com/chat/completions
-DEEPSEEK_MAX_TOKENS=16000
-DEEPSEEK_AUTO_CONTINUE_LIMIT=3
+AI_BASE_URL=https://api.deepseek.com/chat/completions
+AI_API_KEY=your-ai-api-key
+AI_MODEL=deepseek-v4-pro
+AI_MAX_TOKENS=16000
+AI_TEMPERATURE=0.3
+AI_AUTO_CONTINUE_LIMIT=3
 PORT=8787
 ```
 
@@ -385,19 +405,20 @@ PORT=8787
 - 不要把真实 API Key 写进 README。
 - 不要把真实 API Key 写进前端 JS。
 - `.env` 已经被 `.gitignore` 忽略，建议只保存在自己电脑本地。
-- 当前启动脚本会固定写入 `DEEPSEEK_MODEL=deepseek-v4-pro`，用户不需要每次输入模型名。
-- 当前后端默认使用 `DEEPSEEK_MAX_TOKENS=16000`，用于减少 AI 复盘文字被截断的概率。
-- 如果 DeepSeek API 支持更高输出，你可以在 `.env` 里手动改成 `DEEPSEEK_MAX_TOKENS=32000`，但不建议写成无限制。
-- `DEEPSEEK_AUTO_CONTINUE_LIMIT=3` 表示如果模型因为长度停止，后端最多自动续写 3 次。
+- 推荐新环境使用 `AI_*` 变量；旧版 `DEEPSEEK_*` 变量仍然兼容。
+- Windows 启动脚本可能继续写入 `DEEPSEEK_*` 变量，后端会正常识别。
+- 当前后端默认使用 `AI_MAX_TOKENS=16000`，用于减少 AI 复盘文字被截断的概率。
+- 如果 DeepSeek API 支持更高输出，你可以在 `.env` 里手动改成 `AI_MAX_TOKENS=32000`，但不建议写成无限制。
+- `AI_AUTO_CONTINUE_LIMIT=3` 表示如果模型因为长度停止，后端最多自动续写 3 次。
 - `max_tokens` 是模型单次输出上限，不是中文字数；输出越长，DeepSeek API token 成本越高。
-- 如果 DeepSeek 实际服务要求的模型 ID 后续发生变化，可以修改 `server.js` 里的 `DEFAULT_DEEPSEEK_MODEL`，也可以修改 `.env` 里的 `DEEPSEEK_MODEL` 后重新启动。
+- 如果 DeepSeek 实际服务要求的模型 ID 后续发生变化，可以修改 `.env` 里的 `AI_MODEL` 后重新启动。
 
 ### 常见问题
 
 如果 Key 填错：
 
 1. 打开 AI 实验版文件夹里的 `.env`。
-2. 修改 `DEEPSEEK_API_KEY`。
+2. 修改 `AI_API_KEY`。
 3. 保存后重新双击 `启动AI分析器.bat`。
 
 如果页面打不开：
@@ -409,9 +430,9 @@ PORT=8787
 如果 AI 分析失败：
 
 - 检查 API Key 是否正确。
-- 检查 `DEEPSEEK_MODEL` 是否为 `deepseek-v4-pro`。
-- 检查 `DEEPSEEK_MAX_TOKENS` 是否为 `16000`。如果模型不支持这么高，后端会自动降级到 `8000` 重试。
-- 如果 AI 结论仍然被截断，工具会自动续写；如果续写 3 次后仍不完整，可以减少输入快照数量，或在模型支持的范围内继续提高 `DEEPSEEK_MAX_TOKENS`。
+- 检查 `AI_MODEL` 是否为 `deepseek-v4-pro`。
+- 检查 `AI_MAX_TOKENS` 是否为 `16000`。如果模型不支持这么高，后端会自动降级到 `8000` 重试。
+- 如果 AI 结论仍然被截断，工具会自动续写；如果续写 3 次后仍不完整，可以减少输入快照数量，或在模型支持的范围内继续提高 `AI_MAX_TOKENS`。
 - 检查网络是否能访问 DeepSeek。
 - 检查 DeepSeek 账号余额是否正常。
 - 原来的 CSV 分析、多快照对比、选题修正库、筛选和合计功能仍然可以正常使用。
@@ -443,8 +464,8 @@ PORT=8787
 
 如果页面能打开，但 AI 分析失败：
 
-- 先确认 `.env` 里的 `DEEPSEEK_API_KEY` 是否正确。
-- 再确认 `.env` 里的 `DEEPSEEK_MODEL` 是否为 `deepseek-v4-pro`。
+- 先确认 `.env` 里的 `AI_API_KEY` 是否正确。
+- 再确认 `.env` 里的 `AI_MODEL` 是否为 `deepseek-v4-pro`。
 - 再确认网络是否能访问 `https://api.deepseek.com`。
 - 再确认 DeepSeek 账号余额是否正常。
 - 可以在浏览器打开 `http://127.0.0.1:8787/api/deepseek-test`，查看后端返回的 `status`、`message` 和 `model`。
