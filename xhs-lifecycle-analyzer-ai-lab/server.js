@@ -12,6 +12,13 @@ const DEFAULT_DEEPSEEK_MAX_TOKENS = 16000;
 const FALLBACK_DEEPSEEK_MAX_TOKENS = 8000;
 const DEFAULT_AUTO_CONTINUE_LIMIT = 3;
 const DEFAULT_AI_TEMPERATURE = 0.3;
+const ALLOWED_STATIC_FILES = {
+  "/": "index.html",
+  "/index.html": "index.html",
+  "/style.css": "style.css",
+  "/script.js": "script.js",
+  "/vendor/read-excel-file.min.js": path.join("vendor", "read-excel-file.min.js")
+};
 
 loadEnvFile(path.join(ROOT_DIR, ".env"));
 
@@ -35,15 +42,20 @@ const MIME_TYPES = {
 };
 
 const server = http.createServer(function (req, res) {
-  setCorsHeaders(res);
+  var url = new URL(req.url, "http://" + HOST + ":" + PORT);
+  var isApiRoute = url.pathname.indexOf("/api/") === 0;
 
-  if (req.method === "OPTIONS") {
+  if (isApiRoute) {
+    setApiCorsHeaders(req, res);
+  }
+
+  if (req.method === "OPTIONS" && isApiRoute) {
     res.writeHead(204);
     res.end();
     return;
   }
 
-  if (req.url === "/api/health" && req.method === "GET") {
+  if (url.pathname === "/api/health" && req.method === "GET") {
     sendJson(res, 200, {
       ok: true,
       service: SERVICE_NAME,
@@ -56,17 +68,25 @@ const server = http.createServer(function (req, res) {
     return;
   }
 
-  if (req.url === "/api/ai-recap" && req.method === "POST") {
+  if (url.pathname === "/api/ai-recap" && req.method === "POST") {
     handleAiRecap(req, res);
     return;
   }
 
-  if (req.url === "/api/deepseek-test" && req.method === "GET") {
+  if (url.pathname === "/api/deepseek-test" && req.method === "GET") {
     handleDeepSeekTest(res);
     return;
   }
 
-  serveStaticFile(req, res);
+  if (isApiRoute) {
+    sendJson(res, 404, {
+      ok: false,
+      error: "API not found"
+    });
+    return;
+  }
+
+  serveStaticFile(req, res, url);
 });
 
 server.listen(PORT, HOST, function () {
@@ -541,14 +561,18 @@ function readJsonBody(req) {
   });
 }
 
-function serveStaticFile(req, res) {
-  var url = new URL(req.url, "http://" + HOST + ":" + PORT);
+function serveStaticFile(req, res, url) {
   var pathname = decodeURIComponent(url.pathname);
-  if (pathname === "/") {
-    pathname = "/index.html";
+  var relativePath = ALLOWED_STATIC_FILES[pathname];
+  if (!relativePath) {
+    res.writeHead(404, {
+      "Content-Type": "text/plain; charset=utf-8"
+    });
+    res.end("Not found");
+    return;
   }
 
-  var filePath = path.normalize(path.join(ROOT_DIR, pathname));
+  var filePath = path.normalize(path.join(ROOT_DIR, relativePath));
   if (filePath !== ROOT_DIR && !filePath.startsWith(ROOT_DIR + path.sep)) {
     res.writeHead(403, {
       "Content-Type": "text/plain; charset=utf-8"
@@ -580,8 +604,11 @@ function sendJson(res, statusCode, payload) {
   res.end(JSON.stringify(payload));
 }
 
-function setCorsHeaders(res) {
-  res.setHeader("Access-Control-Allow-Origin", "*");
+function setApiCorsHeaders(req, res) {
+  var origin = req.headers.origin || "";
+  if (origin === "null" || origin === "http://" + HOST + ":" + PORT) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 }

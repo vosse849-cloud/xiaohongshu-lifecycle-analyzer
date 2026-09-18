@@ -21,7 +21,7 @@
   <main class="app-shell">
     <header class="page-header">
       <div>
-        <p class="eyebrow">本地 CSV 快照分析工具</p>
+        <p class="eyebrow">本地 CSV / XLSX 快照分析工具</p>
         <h1>小红书笔记生命周期分析器</h1>
         <p class="header-note">第一版只分析单次数据快照，尾流只能判断为“疑似尾流”。</p>
       </div>
@@ -43,15 +43,15 @@
 
     <section class="control-panel" aria-label="上传和分析设置">
       <div class="field-group">
-        <label for="csvFile">上传 CSV 文件</label>
-        <input id="csvFile" type="file" accept=".csv,text/csv">
-        <p class="hint">Excel 请先另存为 CSV，再上传到这里。</p>
+        <label for="csvFile">上传 CSV / XLSX 数据文件</label>
+        <input id="csvFile" type="file" accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+        <p class="hint">支持小红书导出的 CSV，也支持 Excel / Numbers 保存的 XLSX。</p>
       </div>
 
       <div class="field-group">
         <label for="observationTime">当前观察时间</label>
         <input id="observationTime" type="text" placeholder="例如：2026-05-27 17:30">
-        <p id="observationTimeSource" class="time-source-hint">选择 CSV 后会尝试从文件名自动识别观察时间。</p>
+        <p id="observationTimeSource" class="time-source-hint">选择数据文件后会尝试从文件名自动识别观察时间。</p>
         <p class="hint">格式建议使用：年-月-日 时:分。</p>
       </div>
 
@@ -63,7 +63,7 @@
     <section class="overview-section" aria-label="核心数据总览">
       <div class="section-title">
         <h2>核心数据总览</h2>
-        <p>固定展示当前 CSV 的核心规模和质量指标。</p>
+        <p>固定展示当前数据文件的核心规模和质量指标。</p>
       </div>
       <div class="overview-grid">
         <article class="metric-card">
@@ -108,7 +108,7 @@
     <section class="overview-section" aria-label="状态分布">
       <div class="section-title">
         <h2>状态分布</h2>
-        <p>根据当前 CSV 中真实出现的状态自动生成，和状态筛选保持一致。</p>
+        <p>根据当前数据文件中真实出现的状态自动生成，和状态筛选保持一致。</p>
       </div>
       <div id="statusDistributionGrid" class="status-distribution-grid"></div>
     </section>
@@ -116,7 +116,7 @@
     <section class="account-summary" aria-label="账号合计数据">
       <div class="section-title">
         <h2>账号合计数据</h2>
-        <p>用于查看当前 CSV 的账号整体数据，也可以配合筛选器查看局部合计。</p>
+        <p>用于查看当前数据文件的账号整体数据，也可以配合筛选器查看局部合计。</p>
       </div>
       <div class="summary-columns">
         <article class="summary-panel">
@@ -133,7 +133,7 @@
     <section class="report-dashboard" aria-label="数据报表看板">
       <div class="section-title">
         <h2>数据报表看板</h2>
-        <p>根据当前单份 CSV 分析和多快照对比结果，自动生成可视化报表，用于快速观察账号整体趋势、作品增长和状态分布。</p>
+        <p>根据当前单份数据文件分析和多快照对比结果，自动生成可视化报表，用于快速观察账号整体趋势、作品增长和状态分布。</p>
       </div>
 
       <div class="report-toolbar">
@@ -141,7 +141,7 @@
           <label for="reportModeSelect">报表模式</label>
           <select id="reportModeSelect">
             <option value="all">全部报表</option>
-            <option value="single">单份 CSV 报表</option>
+            <option value="single">单份数据文件报表</option>
             <option value="compare">多快照增长报表</option>
           </select>
         </div>
@@ -200,7 +200,7 @@
 
         <article class="chart-card report-single-card" id="singleStatusChartCard">
           <div class="chart-card-header">
-            <h3 data-tooltip="展示当前单份 CSV 中不同笔记状态的数量。">当前笔记状态分布</h3>
+            <h3 data-tooltip="展示当前单份数据文件中不同笔记状态的数量。">当前笔记状态分布</h3>
           </div>
           <div id="singleStatusChart" class="chart-body"></div>
         </article>
@@ -289,17 +289,17 @@
           </thead>
           <tbody id="resultBody">
             <tr>
-              <td colspan="25" class="empty-cell">请上传 CSV，并输入当前观察时间后开始分析。</td>
+              <td colspan="25" class="empty-cell">请上传 CSV / XLSX 数据文件，并输入当前观察时间后开始分析。</td>
             </tr>
           </tbody>
         </table>
       </div>
     </section>
 
-    <section class="compare-section" aria-label="多次 CSV 快照对比">
+    <section class="compare-section" aria-label="多次数据文件快照对比">
       <div class="section-title">
-        <h2>多次 CSV 快照对比</h2>
-        <p>上传多个不同时间点导出的小红书 CSV，系统会自动计算相邻快照之间的新增观看、点赞、收藏、评论、分享、涨粉等数据，用于判断作品是否持续增长、放量、停滞或疑似尾流。</p>
+        <h2>多次 CSV / XLSX 快照对比</h2>
+        <p>上传多个不同时间点导出的小红书 CSV / XLSX，系统会自动计算相邻快照之间的新增观看、点赞、收藏、评论、分享、涨粉等数据，用于判断作品是否持续增长、放量、停滞或疑似尾流。</p>
       </div>
 
       <div id="snapshotList" class="snapshot-list"></div>
@@ -377,7 +377,7 @@
           </thead>
           <tbody id="compareResultBody">
             <tr>
-              <td colspan="21" class="empty-cell">请至少上传 2 个快照 CSV，并填写每个快照的观察时间后开始对比。</td>
+              <td colspan="21" class="empty-cell">请至少上传 2 个快照数据文件，并填写每个快照的观察时间后开始对比。</td>
             </tr>
           </tbody>
         </table>
@@ -387,11 +387,11 @@
     <section class="recap-section" aria-label="复盘结论生成">
       <div class="section-title">
         <h2>复盘结论生成</h2>
-        <p>根据当前页面已经计算出的单份 CSV 分析或多快照对比结果，生成可复制的运营复盘文字。</p>
+        <p>根据当前页面已经计算出的单份数据文件分析或多快照对比结果，生成可复制的运营复盘文字。</p>
       </div>
 
       <div class="recap-actions">
-        <button id="generateSingleRecapBtn" class="sticker-btn sticker-note is-primary-action" type="button">生成单份 CSV 复盘结论</button>
+        <button id="generateSingleRecapBtn" class="sticker-btn sticker-note is-primary-action" type="button">生成单份数据复盘结论</button>
         <button id="generateCompareRecapBtn" class="sticker-btn sticker-trend is-primary-action" type="button">生成多快照增长复盘结论</button>
         <button id="generateAiRecapBtn" class="sticker-btn sticker-ai is-primary-action" type="button">生成 DeepSeek AI 复盘结论</button>
         <button id="copyRecapBtn" class="secondary-btn sticker-btn sticker-copy is-lite-sticker" type="button">复制复盘结论</button>
@@ -399,7 +399,7 @@
       </div>
       <div class="ai-status-bar" aria-label="AI 状态">
         <span>AI 模型：<strong id="aiModelText">读取中...</strong></span>
-        <span data-tooltip="DeepSeek 只读取页面已经计算好的摘要数据，不参与 CSV 解析和规则计算。如果没有多快照数据，AI 无法准确判断新增增长和确认尾流。">AI 分析依据：<strong id="aiBasisText">暂无可分析数据</strong></span>
+        <span data-tooltip="DeepSeek 只读取页面已经计算好的摘要数据，不参与数据文件解析和规则计算。如果没有多快照数据，AI 无法准确判断新增增长和确认尾流。">AI 分析依据：<strong id="aiBasisText">暂无可分析数据</strong></span>
         <span>配置 max_tokens：<strong id="aiConfiguredTokensText">读取中...</strong></span>
         <span>实际使用 max_tokens：<strong id="aiActualTokensText">未生成</strong></span>
         <span>是否自动续写：<strong id="aiAutoContinueText">否</strong></span>
@@ -410,13 +410,14 @@
         <span>实际输出 tokens：<strong id="aiCompletionTokensText">暂无 token 用量数据</strong></span>
         <span>实际总 tokens：<strong id="aiTotalTokensText">暂无 token 用量数据</strong></span>
       </div>
-      <p class="ai-recap-note">AI 实验版需要先启动本地后端并配置 .env。DeepSeek 只读取页面已计算好的摘要数据，不参与 CSV 解析和规则判断。</p>
+      <p class="ai-recap-note">AI 实验版需要先启动本地后端并配置 .env。DeepSeek 只读取页面已计算好的摘要数据，不参与数据文件解析和规则判断。</p>
 
       <div id="aiWarningBox" class="ai-warning-box" hidden></div>
       <textarea id="recapTextarea" class="recap-textarea" placeholder="点击上方按钮后，这里会生成可复制的复盘结论。"></textarea>
     </section>
   </main>
 
+  <script src="vendor/read-excel-file.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

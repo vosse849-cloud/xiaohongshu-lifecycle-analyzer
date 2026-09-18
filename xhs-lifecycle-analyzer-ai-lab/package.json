@@ -5,5 +5,8 @@
   "description": "AI lab version of the local Xiaohongshu lifecycle analyzer.",
   "scripts": {
     "start": "node server.js"
+  },
+  "dependencies": {
+    "read-excel-file": "^9.3.10"
   }
 }

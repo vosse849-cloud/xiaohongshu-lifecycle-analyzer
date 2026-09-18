@@ -98,6 +98,9 @@
 
   applyVisualMode(getSavedVisualMode());
 
+  csvFile.addEventListener("click", function () {
+    csvFile.value = "";
+  });
   csvFile.addEventListener("change", handleFileChange);
   observationTime.addEventListener("input", function () {
     updateObservationTimeSource("观察时间已手动修改，请确认格式为 YYYY-MM-DD HH:mm。", "muted");
@@ -205,11 +208,11 @@
     resetStatusFilterOptions();
     updateAiStatusBar();
     renderReportDashboard();
-    renderEmpty("CSV 已选择，请输入当前观察时间后点击“开始分析”。");
+    renderEmpty("数据文件已选择，请输入当前观察时间后点击“开始分析”。");
 
     if (!file) {
-      updateObservationTimeSource("未选择 CSV 文件。", "muted");
-      renderEmpty("请上传 CSV，并输入当前观察时间后开始分析。");
+      updateObservationTimeSource("未选择数据文件。", "muted");
+      renderEmpty("请上传 CSV / XLSX 数据文件，并输入当前观察时间后开始分析。");
       return;
     }
 
@@ -217,28 +220,30 @@
 
     var reader = new FileReader();
     reader.onload = function (loadEvent) {
-      try {
-        rawRows = parseCsvFromBuffer(loadEvent.target.result);
+      parseDataFileFromBuffer(loadEvent.target.result, file)
+        .then(function (parsed) {
+        rawRows = parsed;
         showMessage(
-          "已读取 " + rawRows.rows.length + " 条数据。识别到表头在第 " +
-          (rawRows.headerRowIndex + 1) + " 行，分隔符为：" + rawRows.delimiterName + "。",
+          buildParsedFileMessage(rawRows),
           true
         );
-      } catch (error) {
+      })
+        .catch(function (error) {
         rawRows = [];
         showMessage(error.message, false);
-        renderEmpty("CSV 读取失败，请检查页面提示中的表头信息。");
-      }
+        renderEmpty("数据文件读取失败，请检查页面提示中的表头信息。");
+      });
     };
     reader.onerror = function () {
-      showMessage("读取文件失败，请重新选择 CSV 文件。", false);
+      rawRows = [];
+      showMessage("读取文件失败，请重新选择 CSV / XLSX 数据文件。", false);
     };
     reader.readAsArrayBuffer(file);
   }
 
   function runAnalysis() {
     if (!rawRows || !rawRows.rows || rawRows.rows.length === 0) {
-      showMessage("请先上传一份 CSV 文件。", false);
+      showMessage("请先上传一份 CSV / XLSX 数据文件。", false);
       return;
     }
 
@@ -282,14 +287,14 @@
       "</div>",
       "<div class=\"snapshot-fields\">",
         "<div class=\"field-group\">",
-          "<label data-tooltip=\"某一个时间点导出的小红书数据。\">快照 CSV</label>",
-          "<input class=\"snapshot-file-input\" type=\"file\" accept=\".csv,text/csv\">",
-          "<p class=\"hint snapshot-file-name\">选择这个时间点导出的小红书 CSV。</p>",
+          "<label data-tooltip=\"某一个时间点导出的小红书数据。\">快照数据文件</label>",
+          "<input class=\"snapshot-file-input\" type=\"file\" accept=\".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet\">",
+          "<p class=\"hint snapshot-file-name\">选择这个时间点导出的 CSV / XLSX。</p>",
         "</div>",
         "<div class=\"field-group\">",
           "<label data-tooltip=\"这个快照对应的数据观察时间，例如：2026-05-27 10:00。\">观察时间</label>",
           "<input class=\"snapshot-time-input\" type=\"text\" placeholder=\"例如：2026-05-27 10:00\">",
-          "<p class=\"hint snapshot-time-status\">选择 CSV 后会尝试从文件名自动识别。</p>",
+          "<p class=\"hint snapshot-time-status\">选择数据文件后会尝试从文件名自动识别。</p>",
         "</div>",
       "</div>"
     ].join("");
@@ -298,6 +303,10 @@
   }
 
   function handleSnapshotListClick(event) {
+    if (event.target.classList && event.target.classList.contains("snapshot-file-input")) {
+      event.target.value = "";
+      return;
+    }
     var button = event.target.closest(".remove-snapshot-btn");
     if (!button || button.disabled) {
       return;
@@ -323,13 +332,14 @@
       if (timeInput) {
         timeInput.value = "";
       }
-      updateTimeSourceElement(statusElement, "未选择 CSV 文件。", "muted");
+      updateTimeSourceElement(statusElement, "未选择数据文件。", "muted");
       if (fileNameElement) {
-        fileNameElement.textContent = "选择这个时间点导出的小红书 CSV。";
+        fileNameElement.textContent = "选择这个时间点导出的 CSV / XLSX。";
       }
       return;
     }
 
+    event.target._snapshotFile = file;
     if (fileNameElement) {
       fileNameElement.textContent = "文件名：" + file.name;
     }
@@ -367,7 +377,11 @@
 
     Promise.all(snapshots.map(function (snapshot) {
       return readFileAsArrayBuffer(snapshot.file).then(function (buffer) {
-        var parsed = parseCsvFromBuffer(buffer);
+        return parseDataFileFromBuffer(buffer, snapshot.file);
+      }).then(function (parsed) {
+        if (snapshot.fileNameElement) {
+          snapshot.fileNameElement.textContent = "文件名：" + snapshot.file.name + getParsedFileMetaSuffix(parsed);
+        }
         return {
           label: snapshot.label,
           fileName: snapshot.file.name,
@@ -397,7 +411,7 @@
       .catch(function (error) {
         compareRows = [];
         compareContext = null;
-        renderCompareEmpty("多快照对比失败，请检查 CSV 和观察时间。");
+        renderCompareEmpty("多快照对比失败，请检查数据文件和观察时间。");
         updateCompareIntervalFilter([]);
         updateCompareStatusFilter([], "all");
         updateCompareSummary([], null);
@@ -420,13 +434,13 @@
     for (var i = 0; i < cards.length; i += 1) {
       var fileInput = cards[i].querySelector(".snapshot-file-input");
       var timeInput = cards[i].querySelector(".snapshot-time-input");
-      var file = fileInput && fileInput.files ? fileInput.files[0] : null;
+      var file = fileInput ? (fileInput._snapshotFile || (fileInput.files ? fileInput.files[0] : null)) : null;
       var timeText = timeInput ? timeInput.value.trim() : "";
       var date = parseLocalDate(timeText);
       var label = "快照 " + (i + 1);
 
       if (!file) {
-        showMessage(label + " 还没有选择 CSV 文件。", false);
+        showMessage(label + " 还没有选择 CSV / XLSX 数据文件。", false);
         return null;
       }
       if (!timeText || !date) {
@@ -441,6 +455,7 @@
       snapshots.push({
         label: label,
         file: file,
+        fileNameElement: cards[i].querySelector(".snapshot-file-name"),
         timeText: timeText,
         date: date
       });
@@ -819,7 +834,7 @@
     if (oldRow && !newRow) {
       return {
         status: "快照缺失",
-        advice: "后一个快照中没有找到这篇笔记，请检查两份 CSV 是否来自同一账号或导出范围是否一致。"
+        advice: "后一个快照中没有找到这篇笔记，请检查两份数据文件是否来自同一账号或导出范围是否一致。"
       };
     }
     if (deltas.views >= 500 && deltas.likeCollect >= 50) {
@@ -876,6 +891,101 @@
     throw new Error(errors[errors.length - 1] || "CSV 读取失败，请检查文件格式。");
   }
 
+  function parseDataFileFromBuffer(buffer, file) {
+    var extension = getFileExtension(file && file.name);
+    if (extension === "csv") {
+      return Promise.resolve(parseCsvFromBuffer(buffer));
+    }
+    if (extension === "xlsx") {
+      return parseXlsxFromBuffer(buffer, file);
+    }
+    return Promise.reject(new Error("不支持的文件格式。请上传 .csv 或 .xlsx 文件。"));
+  }
+
+  function getFileExtension(fileName) {
+    var match = String(fileName || "").toLowerCase().match(/\.([^.]+)$/);
+    return match ? match[1] : "";
+  }
+
+  function buildParsedFileMessage(parsed) {
+    var parts = [
+      "已读取 " + parsed.rows.length + " 条数据。",
+      "文件格式：" + (parsed.formatName || "数据文件") + "。",
+      "识别到表头在第 " + (parsed.headerRowIndex + 1) + " 行。"
+    ];
+    if (parsed.delimiterName) {
+      parts.push("分隔符为：" + parsed.delimiterName + "。");
+    }
+    if (parsed.sheetName) {
+      parts.push("已读取 Sheet：" + parsed.sheetName + "。");
+    }
+    return parts.join("");
+  }
+
+  function getParsedFileMetaSuffix(parsed) {
+    if (!parsed || !parsed.sheetName) {
+      return "";
+    }
+    return "；已读取 Sheet：" + parsed.sheetName;
+  }
+
+  function parseXlsxFromBuffer(buffer, file) {
+    if (!window.readXlsxFile || typeof window.readXlsxFile !== "function") {
+      return Promise.reject(new Error("XLSX 解析库未加载，请刷新页面后重试。"));
+    }
+
+    return window.readXlsxFile(buffer)
+      .then(function (sheets) {
+        if (!sheets || !sheets.length) {
+          throw new Error("XLSX 中没有可读取的 Sheet。");
+        }
+        var firstSheet = sheets[0];
+        var sheetName = firstSheet && firstSheet.sheet ? firstSheet.sheet : "Sheet1";
+        var data = firstSheet && firstSheet.data ? firstSheet.data : [];
+        if (!data.length) {
+          throw new Error("XLSX 第一个 Sheet 为空，无法分析。");
+        }
+        var lines = data.map(function (row) {
+          return (row || []).map(normalizeReadExcelCell);
+        });
+        return parseTabularLines(lines, {
+          formatName: "XLSX",
+          sheetName: sheetName,
+          sourceName: file && file.name ? file.name : "XLSX 文件"
+        });
+      })
+      .catch(function (error) {
+        if (error && error.message && (error.message.indexOf("表头") !== -1 || error.message.indexOf("缺少这些字段") !== -1)) {
+          throw error;
+        }
+        throw new Error("XLSX 读取失败，请确认文件是真正的 .xlsx 文件。原始错误：" + (error && error.message ? error.message : "未知错误"));
+      });
+  }
+
+  function normalizeReadExcelCell(value) {
+    if (value === null || typeof value === "undefined") {
+      return "";
+    }
+    if (value instanceof Date) {
+      return formatExcelDate(value);
+    }
+    if (typeof value === "number") {
+      return Number.isFinite(value) ? String(value) : "";
+    }
+    if (typeof value === "boolean") {
+      return value ? "TRUE" : "FALSE";
+    }
+    return cleanCell(value);
+  }
+
+  function formatExcelDate(date) {
+    return [
+      date.getFullYear(),
+      pad2(date.getMonth() + 1),
+      pad2(date.getDate())
+    ].join("-") + " " + pad2(date.getHours()) + ":" + pad2(date.getMinutes()) + ":" + pad2(date.getSeconds());
+  }
+
   function decodeBuffer(buffer, encoding) {
     if (typeof TextDecoder === "undefined") {
       var bytes = new Uint8Array(buffer);
@@ -908,6 +1018,23 @@
 
     if (lines.length < 2) {
       throw new Error("CSV 至少需要包含表头和 1 条数据。");
+    }
+
+    return parseTabularLines(lines, {
+      formatName: "CSV",
+      delimiterName: delimiterInfo.name
+    });
+  }
+
+  function parseTabularLines(lines, meta) {
+    lines = lines.filter(function (line) {
+      return line.some(function (value) {
+        return normalizeHeader(value) !== "";
+      });
+    });
+
+    if (lines.length < 2) {
+      throw new Error((meta.formatName || "数据文件") + " 至少需要包含表头和 1 条数据。");
     }
 
     var headerInfo = findHeaderLine(lines);
@@ -947,7 +1074,10 @@
       headers: headers,
       rows: rows,
       headerRowIndex: headerInfo.index,
-      delimiterName: delimiterInfo.name
+      delimiterName: meta.delimiterName || "",
+      formatName: meta.formatName || "数据文件",
+      sheetName: meta.sheetName || "",
+      sourceName: meta.sourceName || ""
     };
   }
 
@@ -1089,7 +1219,7 @@
     var missingText = missing.length ? missing.join("、") : requiredHeaders.join("、");
 
     return new Error(
-      "CSV 表头识别失败。\n" +
+      "数据文件表头识别失败。\n" +
       "实际识别到的表头行内容：\n" + recognizedLine + "\n" +
       "实际识别到的字段名列表：\n" + fields + "\n" +
       "缺少这些字段：\n" + missingText
@@ -1294,7 +1424,7 @@
       if (analyzedRows.length) {
         resultBody.innerHTML = "<tr><td colspan=\"25\" class=\"empty-cell\">当前筛选条件下没有匹配的笔记。</td></tr>" + renderSummaryRow(buildAccountSummary(rows));
       } else {
-        renderEmpty("请上传 CSV，并输入当前观察时间后开始分析。");
+        renderEmpty("请上传 CSV / XLSX 数据文件，并输入当前观察时间后开始分析。");
       }
       return;
     }
@@ -1343,7 +1473,7 @@
     var rows = getVisibleCompareRows();
     renderReportDashboard();
     if (!rows.length) {
-      renderCompareEmpty(compareRows.length ? "当前筛选条件下没有匹配的对比结果。" : "请至少上传 2 个快照 CSV，并填写每个快照的观察时间后开始对比。");
+      renderCompareEmpty(compareRows.length ? "当前筛选条件下没有匹配的对比结果。" : "请至少上传 2 个快照数据文件，并填写每个快照的观察时间后开始对比。");
       return;
     }
 
@@ -1661,7 +1791,7 @@
 
   function reidentifyTopics() {
     if (!analyzedRows.length) {
-      showMessage("请先上传并分析 CSV，再重新识别选题。", false);
+      showMessage("请先上传并分析 CSV / XLSX 数据文件，再重新识别选题。", false);
       return;
     }
 
@@ -1684,7 +1814,7 @@
 
   function applyTopicCorrectionLibrary() {
     if (!analyzedRows.length) {
-      showMessage("请先上传并分析 CSV，再重新应用修正库。", false);
+      showMessage("请先上传并分析 CSV / XLSX 数据文件，再重新应用修正库。", false);
       return;
     }
 
@@ -1744,7 +1874,7 @@
           applyTopicCorrectionLibrary();
           showMessage("成功导入 " + imported.length + " 条选题修正。当前页面数据已自动重新应用修正库。", true);
         } else {
-          showMessage("成功导入 " + imported.length + " 条选题修正。上传小红书 CSV 后会自动匹配历史修正。", true);
+          showMessage("成功导入 " + imported.length + " 条选题修正。上传小红书数据文件后会自动匹配历史修正。", true);
         }
       } catch (error) {
         showMessage("导入选题修正库失败：" + error.message, false);
@@ -1814,7 +1944,7 @@
 
   function exportTopicCsv() {
     if (!analyzedRows.length) {
-      showMessage("请先上传并分析 CSV，再导出带选题的结果。", false);
+      showMessage("请先上传并分析 CSV / XLSX 数据文件，再导出带选题的结果。", false);
       return;
     }
 
@@ -1894,7 +2024,7 @@
     }
     var distribution = getStatusDistribution(rows);
     if (!distribution.statuses.length) {
-      statusDistributionGrid.innerHTML = "<div class=\"empty-status-distribution\">上传 CSV 并分析后显示状态分布。</div>";
+      statusDistributionGrid.innerHTML = "<div class=\"empty-status-distribution\">上传 CSV / XLSX 数据文件并分析后显示状态分布。</div>";
       return;
     }
 
@@ -2251,7 +2381,7 @@
 
   function renderSingleStatusChart() {
     if (!analyzedRows.length) {
-      renderChartEmpty(singleStatusChart, "请先完成单份 CSV 分析，才能查看当前笔记状态分布。");
+      renderChartEmpty(singleStatusChart, "请先完成单份数据文件分析，才能查看当前笔记状态分布。");
       return;
     }
 
@@ -2312,9 +2442,9 @@
   }
 
   function applyStaticTooltips() {
-    setTooltipForSelector("label[for='csvFile']", "上传从小红书导出的 CSV 文件。Excel 文件请先另存为 CSV 后再上传。");
+    setTooltipForSelector("label[for='csvFile']", "上传从小红书导出的 CSV，或 Excel / Numbers 保存的 XLSX 数据文件。");
     setTooltipForSelector("label[for='observationTime']", "用于计算每篇笔记已经发布了多久。格式示例：2026-05-27 18:00。");
-    setTooltipForSelector("#analyzeBtn", "读取当前 CSV，并根据观察时间计算每篇笔记的表现状态。");
+    setTooltipForSelector("#analyzeBtn", "读取当前数据文件，并根据观察时间计算每篇笔记的表现状态。");
     setTooltipForSelector("#exportTopicBtn", "导出当前分析结果，包含选题、原始标题、数据指标、状态和运营建议，适合归档本次复盘。");
     setTooltipForSelector("#reidentifyTopicBtn", "使用当前自动识别规则重新识别选题。不会覆盖你手动确认过的选题。");
     setTooltipForSelector("#applyCorrectionBtn", "把历史手动修正过的选题重新套用到当前数据里。");
@@ -2322,19 +2452,19 @@
     setTooltipForSelector(".file-action", "导入之前备份的选题修正库，恢复历史修正记录。");
     setTooltipForSelector("#cleanPendingCacheBtn", "清除无效的“待填写”缓存，不会删除你手动修正过的选题。");
     setTooltipForSelector("#cleanEmptyTitleCacheBtn", "清理旧规则造成的空标题错误修正，不会删除正常有标题的历史修正。");
-    setTooltipForSelector("label[for='reportModeSelect']", "切换全部报表、单份 CSV 报表或多快照增长报表。");
+    setTooltipForSelector("label[for='reportModeSelect']", "切换全部报表、单份数据文件报表或多快照增长报表。");
     setTooltipForSelector("label[for='reportTopModeSelect']", "按作品汇总会把同一作品多个区间合并；按区间记录会保留每个区间的单条记录。");
     setTooltipForSelector(".report-checkbox", "默认关闭时，图表会排除快照缺失、新增笔记、匹配风险和未确认选题记录。");
     setTooltipForSelector("label[for='lifecycleFilterSelect']", "按笔记已发布时长筛选，方便查看不同生命周期阶段的表现。");
-    setTooltipForSelector("label[for='statusFilterSelect']", "根据当前 CSV 里真实出现的状态动态生成，可和生命周期筛选同时使用。");
-    setTooltipForSelector(".compare-section h2", "用于比较多个时间点导出的 CSV，判断每个时间段内作品新增数据变化。");
-    setTooltipForSelector("#addSnapshotBtn", "继续添加一个时间点的 CSV 快照。");
-    setTooltipForSelector("#compareBtn", "读取多个 CSV，按观察时间排序，并计算相邻快照之间的新增数据。");
+    setTooltipForSelector("label[for='statusFilterSelect']", "根据当前数据文件里真实出现的状态动态生成，可和生命周期筛选同时使用。");
+    setTooltipForSelector(".compare-section h2", "用于比较多个时间点导出的 CSV / XLSX，判断每个时间段内作品新增数据变化。");
+    setTooltipForSelector("#addSnapshotBtn", "继续添加一个时间点的数据快照。");
+    setTooltipForSelector("#compareBtn", "读取多个数据文件，按观察时间排序，并计算相邻快照之间的新增数据。");
     setTooltipForSelector("#exportCompareBtn", "导出当前多快照对比表，包含区间、新增数据、增长判断和运营建议。");
     setTooltipForSelector("label[for='compareIntervalFilter']", "按两个相邻快照之间的对比区间筛选，例如 10:00 到 14:00。");
     setTooltipForSelector("label[for='compareStatusFilter']", "按本次多快照对比中实际出现的增长判断筛选。");
     setTooltipForSelector("label[for='compareSortSelect']", "按新增观看、新增曝光、每小时新增观看等指标排序。");
-    setTooltipForSelector("#generateSingleRecapBtn", "根据当前单份 CSV 的整体数据、状态分布和重点作品，生成一段运营复盘文字。");
+    setTooltipForSelector("#generateSingleRecapBtn", "根据当前单份数据文件的整体数据、状态分布和重点作品，生成一段运营复盘文字。");
     setTooltipForSelector("#generateCompareRecapBtn", "根据多个快照之间的新增数据，生成增长复盘和下一步建议。");
     setTooltipForSelector("#generateAiRecapBtn", "把页面已计算好的结构化摘要发给本地后端，由 DeepSeek 生成 AI 复盘建议。");
     setTooltipForSelector("#copyRecapBtn", "复制当前生成的复盘文字，方便粘贴到飞书、Excel 或运营记录。");
@@ -2756,7 +2886,7 @@
 
   function generateSingleCsvRecap() {
     if (!analyzedRows.length) {
-      showMessage("请先完成单份 CSV 分析。", false);
+      showMessage("请先完成单份数据文件分析。", false);
       return;
     }
 
@@ -2771,7 +2901,7 @@
     var normalCount = (counts["普通"] || 0) + (counts["普通观察"] || 0) + (counts["普通偏弱"] || 0);
 
     var lines = [
-      "【单份 CSV 复盘结论】",
+      "【单份数据文件复盘结论】",
       "一、数据概览",
       "本次共分析 " + formatInteger(total) + " 篇笔记，总曝光 " + formatInteger(summary.impressions) +
         "，总观看量 " + formatInteger(summary.views) + "，总点赞 " + formatInteger(summary.likes) +
@@ -2819,7 +2949,7 @@
     ];
 
     recapTextarea.value = lines.join("\n\n");
-    showMessage("已生成单份 CSV 复盘结论。", true);
+    showMessage("已生成单份数据文件复盘结论。", true);
   }
 
   function generateMultiSnapshotRecap() {
@@ -2930,7 +3060,7 @@
   function generateAiRecap() {
     var payload = buildAiAnalysisPayload();
     if (!payload.singleCsv && !payload.multiSnapshot) {
-      showMessage("请先完成单份 CSV 分析或多快照对比，再生成 AI 复盘。", false);
+      showMessage("请先完成单份数据文件分析或多快照对比，再生成 AI 复盘。", false);
       return;
     }
     if (!window.fetch) {
@@ -3015,12 +3145,12 @@
       return "暂无可分析数据";
     }
     if (hasSingle && !hasCompare) {
-      return "当前仅基于单份 CSV 分析，无法准确判断新增增长、二次推荐和确认尾流。";
+      return "当前仅基于单份数据文件分析，无法准确判断新增增长、二次推荐和确认尾流。";
     }
     if (!hasSingle && hasCompare) {
       return "当前基于多快照增长数据分析，可判断新增增长和疑似尾流。";
     }
-    return "当前基于单份 CSV 状态 + 多快照增长数据综合分析。";
+    return "当前基于单份数据文件状态 + 多快照增长数据综合分析。";
   }
 
   function refreshAiModelStatus() {
@@ -3113,7 +3243,7 @@
           "后端返回信息：DeepSeek 响应时间过长，请稍后重试。",
           "当前 model：未知",
           "",
-          "提示：原分析器功能不受影响，CSV 分析、多快照对比、筛选、合计仍可正常使用。"
+          "提示：原分析器功能不受影响，数据文件分析、多快照对比、筛选、合计仍可正常使用。"
         ].join("\n")
       };
     }
@@ -3133,7 +3263,7 @@
         "后端返回信息：" + message,
         "当前 model：" + model,
         "",
-        "提示：原分析器功能不受影响，CSV 分析、多快照对比、筛选、合计仍可正常使用。"
+        "提示：原分析器功能不受影响，数据文件分析、多快照对比、筛选、合计仍可正常使用。"
       ].join("\n")
     };
   }
@@ -3156,7 +3286,7 @@
     return {
       project: "小红书笔记生命周期分析器 AI 实验版",
       generatedAt: new Date().toISOString(),
-      dataPolicy: "仅包含页面已计算的结构化摘要，不包含完整 CSV 原始内容。",
+      dataPolicy: "仅包含页面已计算的结构化摘要，不包含完整 CSV/XLSX 原始内容。",
       singleCsv: analyzedRows.length ? buildSingleAiSummary(analyzedRows) : null,
       multiSnapshot: compareRows.length && compareContext ? buildMultiSnapshotAiSummary(compareRows, compareContext) : null
     };
@@ -4451,7 +4581,7 @@
   }
 
   function getDeltaTooltip(row) {
-    return row.hasNegativeDelta ? "数据回退，可能是平台统计修正或 CSV 不一致。" : "";
+    return row.hasNegativeDelta ? "数据回退，可能是平台统计修正或数据文件不一致。" : "";
   }
 
   function escapeHtml(value) {
